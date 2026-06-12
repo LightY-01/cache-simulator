@@ -2,106 +2,100 @@
 #define LFU_CACHE_H
 
 #include <unordered_map>
-#include <set>
+#include <list>
 #include <tuple>
-#include <utility>
+#include <iterator>
 #include <cstdint> // For uint64_t compatibility with traces
 
 using namespace std;
 
-// O(log N) LFU Cache implementation using std::set
+// O(1) LFU Cache implementation using a Hash Map and Frequency Lists
 class LFUCache {
 private:
-    // Key is the 64-bit block address (LBA).
-    // Maps key -> cached value.
-    unordered_map<uint64_t, int> storage;
+    // We use uint64_t for key because disk block addresses (LBAs) are large.
+    // maps key -> tuple of {value, frequency, iterator to key's position in freqList}
+    unordered_map<uint64_t, tuple<int, int, list<uint64_t>::iterator>> storage;
     
-    // Maps key -> {access_frequency, last_accessed_time}
-    unordered_map<uint64_t, pair<int, int>> key_freq;
-    
-    // Set to keep track of frequency and recency.
-    // Set stores tuples of <frequency, last_accessed_time, key>
-    // It keeps them sorted, so the least frequent (and oldest) is at the beginning.
-    set<tuple<int, int, uint64_t>> freq_set;
-    
-    int max_size = 0;
-    int current_time = 0; // Simple logical timestamp incremented on each access
+    // maps frequency -> list of keys with that frequency (newest/MRU at the back)
+    unordered_map<int, list<uint64_t>> freqList;
+
+    int max_size;
+    int min_freq;
 
 public:
-    // Constructor
+    // Constructor to initialize LFU cache capacity
     LFUCache(int capacity) {
         max_size = capacity;
-        current_time = 0;
+        min_freq = 0;
     }
     
-    // Retrieves value from cache and updates its frequency and access time.
-    // Returns -1 if key is not found (Cache Miss).
+    // Look up key in O(1). Returns value, or -1 if not found.
+    // Promotes the accessed key's frequency by 1.
     int get(uint64_t key) {
         if (max_size <= 0) return -1;
         
-        current_time++;
         auto it = storage.find(key);
         if (it == storage.end()) {
             return -1; // Cache Miss
         }
 
-        // Cache Hit: Get current frequency and access time
-        int freq = key_freq[key].first;
-        int old_time = key_freq[key].second;
+        // Cache Hit: Extract value, current frequency, and list iterator
+        auto [value, freq, list_it] = it->second;
+
+        // Remove the key from its current frequency list
+        freqList[freq].erase(list_it);
         
-        // Remove the old tuple from the sorted set
-        freq_set.erase({freq, old_time, key});
+        // If the frequency list is empty, clean it up
+        if (freqList[freq].empty()) {
+            freqList.erase(freq);
+            // If the deleted frequency was the minimum, increment the minimum frequency
+            if (freq == min_freq) {
+                min_freq++;
+            }
+        }
+
+        // Promote frequency
+        freq++;
+        freqList[freq].push_back(key); // Add to new frequency list
         
-        // Update frequency and timestamp
-        key_freq[key].first = freq + 1;
-        key_freq[key].second = current_time;
+        // Update storage with new frequency and the new iterator (end of the list)
+        storage[key] = {value, freq, prev(freqList[freq].end())};
         
-        // Re-insert updated tuple into the set
-        freq_set.insert({freq + 1, current_time, key});
-        
-        return it->second;
+        return value;
     }
     
-    // Inserts or updates a key-value pair.
-    // Evicts the least frequently used (and oldest) key if cache capacity is full.
+    // Insert/update key and value in O(1).
+    // Evicts least frequently (and oldest) used key if capacity is full.
     void put(uint64_t key, int value) {
         if (max_size <= 0) return;
-        
-        current_time++;
-        auto it = storage.find(key);
-        if (it != storage.end()) {
-            // Key already exists: update its value
-            it->second = value;
-            
-            // Get old frequency and timestamp
-            int freq = key_freq[key].first;
-            int old_time = key_freq[key].second;
-            
-            // Remove old tuple and insert updated one
-            freq_set.erase({freq, old_time, key});
-            key_freq[key].first = freq + 1;
-            key_freq[key].second = current_time;
-            freq_set.insert({freq + 1, current_time, key});
+
+        // If key already exists: update value and promote frequency
+        if (storage.find(key) != storage.end()) {
+            get(key); // Handles frequency promotion
+            std::get<0>(storage[key]) = value; // Update value in the tuple
             return;
         }
 
-        // If cache capacity is reached, evict LFU item
+        // If cache is full, evict LFU item
         if (storage.size() == max_size) {
-            // The first element in the set is the LFU (and LRU if frequencies match)
-            auto [least_freq, old_time, rm_key] = *freq_set.begin();
+            auto it = freqList.find(min_freq);
+            uint64_t evict_key = it->second.front(); // LRU item in the min_freq list
             
-            storage.erase(rm_key);
-            key_freq.erase(rm_key); // Clean up frequency map to prevent memory leak
-            freq_set.erase({least_freq, old_time, rm_key});
+            storage.erase(evict_key);
+            it->second.pop_front();
+            
+            if (it->second.empty()) {
+                freqList.erase(min_freq);
+            }
         }
-        
-        // Insert new item
-        storage[key] = value;
-        key_freq[key] = {1, current_time};
-        freq_set.insert({1, current_time, key});
+
+        // Insert new key with frequency 1
+        freqList[1].push_back(key);
+        storage[key] = {value, 1, prev(freqList[1].end())};
+        min_freq = 1;
     }
 
-    // Helper functions for testing
+    // Helper function to clear the cache
     int size() const noexcept {
         return storage.size();
     }
@@ -113,12 +107,12 @@ public:
     bool empty() const noexcept {
         return storage.empty();
     }
-
-    void clear() noexcept {
+    
+    void clear() {
         storage.clear();
-        key_freq.clear();
-        freq_set.clear();
+        freqList.clear();
+        min_freq = 0;
     }
 };
 
-#endif
+#endif /* LFU_CACHE_H */
