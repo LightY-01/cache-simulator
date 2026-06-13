@@ -5,14 +5,16 @@
 #include <list>
 #include <tuple>
 #include <iterator>
-#include <cstdint> // For uint64_t compatibility with traces
+#include <cstdint>
+#include <string>
+#include "cache-policy.h"
 
 using namespace std;
 
-// O(1) LFU Cache implementation using a Hash Map and Frequency Lists
-class LFUCache {
+// O(1) LFU Cache inheriting from CachePolicy
+class LFUCache : public CachePolicy {
 private:
-    // We use uint64_t for key because disk block addresses (LBAs) are large.
+    // Key is the 64-bit block address (LBA)
     // maps key -> tuple of {value, frequency, iterator to key's position in freqList}
     unordered_map<uint64_t, tuple<int, int, list<uint64_t>::iterator>> storage;
     
@@ -29,9 +31,9 @@ public:
         min_freq = 0;
     }
     
-    // Look up key in O(1). Returns value, or -1 if not found.
-    // Promotes the accessed key's frequency by 1.
-    int get(uint64_t key) {
+    // Look up key in O(1), returns value or -1 if not found
+    // Promotes the accessed key's frequency by 1
+    int get(uint64_t key) override {
         if (max_size <= 0) return -1;
         
         auto it = storage.find(key);
@@ -64,9 +66,9 @@ public:
         return value;
     }
     
-    // Insert/update key and value in O(1).
-    // Evicts least frequently (and oldest) used key if capacity is full.
-    void put(uint64_t key, int value) {
+    // Insert/update key and value in O(1)
+    // Evicts least frequently (and oldest) used key if capacity is full
+    void put(uint64_t key, int value) override {
         if (max_size <= 0) return;
 
         // If key already exists: update value and promote frequency
@@ -95,24 +97,17 @@ public:
         min_freq = 1;
     }
 
+    // Helper to return policy name
+    string get_name() const override {
+        return "LFU";
+    }
+
     // Helper function to clear the cache
-    int size() const noexcept {
-        return storage.size();
-    }
-
-    int capacity() const noexcept {
-        return max_size;
-    }
-
-    bool empty() const noexcept {
-        return storage.empty();
-    }
-    
-    void clear() {
+    void clear() override {
         storage.clear();
         freqList.clear();
         min_freq = 0;
     }
 };
 
-#endif /* LFU_CACHE_H */
+#endif // LFU_CACHE_H

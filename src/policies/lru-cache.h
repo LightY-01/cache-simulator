@@ -4,21 +4,23 @@
 #include <unordered_map>
 #include <list>
 #include <utility>
-#include <cstdint> // For uint64_t compatibility with traces
+#include <cstdint>
+#include <string>
+#include "cache-policy.h"
 
 using namespace std;
 
-// LRU Cache implementation for cache simulation
-class LRUCache {
+// LRU Cache inheriting from CachePolicy
+class LRUCache : public CachePolicy {
 private:
-    // Key is the 64-bit block address (LBA).
-    // Maps key -> {cached value, iterator to the linked list node}.
+    // Key is the 64-bit block address (LBA)
+    // Maps key -> {cached value, iterator to the linked list node}
     unordered_map<uint64_t, pair<int, list<uint64_t>::iterator>> storage;
     
     int max_size = 0;
     
-    // Doubly-linked list storing keys to track access recency.
-    // Least recently used is at the front; most recently used is at the back.
+    // Doubly-linked list storing keys to track access recency
+    // LRU is at the front, MRU is at the back
     list<uint64_t> age;
 
 public:
@@ -27,9 +29,9 @@ public:
         max_size = capacity;
     }
     
-    // Returns value if key is in cache (and moves key to back/MRU).
-    // Returns -1 if it's a Cache Miss.
-    int get(uint64_t key) {
+    // Returns value if key is in cache (and moves key to back/MRU)
+    // Returns -1 if it's a Cache Miss
+    int get(uint64_t key) override {
         auto it = storage.find(key);
         if (it == storage.end()) {
             return -1; // Cache Miss
@@ -40,9 +42,9 @@ public:
         return it->second.first;
     }
     
-    // Inserts or updates key-value pair in cache.
-    // Evicts the least recently used key if capacity is full.
-    void put(uint64_t key, int value) {
+    // Inserts or updates key-value pair in cache
+    // Evicts the least recently used key if capacity is full
+    void put(uint64_t key, int value) override {
         if (max_size <= 0) return;
 
         auto it = storage.find(key);
@@ -65,7 +67,18 @@ public:
         storage[key] = {value, prev(age.end())};
     }
 
-    // Helper functions for testing
+    // Helper to return policy name
+    string get_name() const override {
+        return "LRU";
+    }
+
+    // Clear the cache
+    void clear() override {
+        storage.clear();
+        age.clear();
+    }
+
+    // Helper functions for capacity check
     int size() const noexcept {
         return storage.size();
     }
@@ -77,11 +90,6 @@ public:
     bool empty() const noexcept {
         return storage.empty();
     }
-
-    void clear() noexcept {
-        storage.clear();
-        age.clear();
-    }
 };
 
-#endif
+#endif // LRU_CACHE_H
