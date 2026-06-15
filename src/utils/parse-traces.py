@@ -1,8 +1,14 @@
 import bz2
 import struct
+import argparse
 
-trace_path = "Financial1.spc.bz2"
-binary_out = "Financial1.bin"
+parser = argparse.ArgumentParser()
+parser.add_argument("trace_path", help="Path to the trace file")
+parser.add_argument("binary_out", help="Path to the output binary file")
+args = parser.parse_args()
+
+trace_path = args.trace_path
+binary_out = args.binary_out
 
 binary_formatter = struct.Struct('<qi?')
 
