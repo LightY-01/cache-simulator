@@ -11,7 +11,7 @@
 using namespace std;
 
 // This tells the hash map exactly which list the key is currently sitting in
-enum State { IN_T1, IN_T2, IN_B1, IN_B2 };
+enum State {IN_T1, IN_T2, IN_B1, IN_B2};
 
 // The Custom Node
 struct Node {
