@@ -9,6 +9,7 @@
 #include "src/policies/lru-cache.h"
 #include "src/policies/lfu-cache.h"
 #include "src/policies/arc-cache.h"
+#include "src/policies/2q-cache.h"
 
 using namespace std;
 
@@ -99,7 +100,8 @@ int main(int argc, char* argv[]) {
     vector<CachePolicy*> policies = {
         new LRUCache(cache_capacity),
         new LFUCache(cache_capacity),
-        new ARCCache(cache_capacity)
+        new ARCCache(cache_capacity),
+        new TwoQCache(cache_capacity)
     };
     
     // Run simulation for each policy
