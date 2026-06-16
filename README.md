@@ -99,8 +99,8 @@ python plot-results.py
 The edge-case analysis and logic verification tests are isolated in the tests/ directory.
 
 ```bash
-g++ -O3 tests/sequential-thrashing.cpp -o test-seq && ./seq
-g++ -O3 tests/frequency-shock.cpp -o test-freq && ./freq
-g++ -O3 tests/shifting-hybrid.cpp -o test-hybrid && ./hybrid
-g++ -O3 tests/scan-resistance.cpp -o test-scan && ./scan
+g++ -O3 tests/sequential-thrashing.cpp -o seq && ./seq
+g++ -O3 tests/frequency-shock.cpp -o freq && ./freq
+g++ -O3 tests/shifting-hybrid.cpp -o hybrid && ./hybrid
+g++ -O3 tests/scan-resistance.cpp -o scan && ./scan
 ```
